@@ -1,13 +1,3 @@
-# Histogram for plot ENMTools's results
+Welcome
 
-
-data<-reade.teable("data.txt, header=T)
-attach(data)
-p1 <- hist(data1, br = seq(0, 1, by = 0.008))                     
-p2 <- hist(data2, br = seq(0, 1, by = 0.008))
-png("data.png") #save data in pgg format
-plotp1<-plot( p1, col=rgb(0,0,1,1/10), ylim=c(0, 10), xlim=c(0,001), main = "Similarity of Data", xlab = "Similarity")  
-plotp2<-plot( p2, col=rgb(1,0,0,1/10), xlim=c(0,001), add=T)  
-line<-abline(v = 0.2, col = "red", lty=5)
-dev.off()
 
