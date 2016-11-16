@@ -1,0 +1,440 @@
+## Tutorial Curso de Modelagem de DistribuiÃ§Ã£o de EspÃ©cies - UFRN - Natal Outubro de 2016  #####
+#Adaptado: Maurício Dália (UFRN) e Wellyngton Espíndola (INPA)
+
+###### Selecionar o diretorio com o material do curso #############
+setwd("E:/modelagem/Pratica") #ou Ctrl+Shift+H
+
+
+###### PreparaÃ§Ã£o das variÃ¡veis ambientais #############
+
+###### Pacotes e Maxent ######
+##instalar(rgdal,Dismo,Maptools,raster,sp,rJava, maps)
+install.packages('pacote') #ou na aba Packages/Install
+
+##Java instalar manualmente quando 64bits (https://www.java.com/en/download/manual.jsp)
+
+##Indicar diretorio Java
+Sys.setenv(JAVA_HOME="C:/Program Files/Java/jre1.8.0_101") #copia e cola o diretorio aqui
+
+#baixar maxent.jar e colocar dentro da pasta java do pacote dismo (C:/Program Files/R/library/dismo/java)
+
+###### COrtando as variaveis, no caso WorldClim 10min #############
+
+library(raster)
+library (rgdal)
+library (rJava)
+
+## carregando as variaveis climáticas da pasta "Worldclim10arc"
+files <- stack(list.files(path = "Worldclim10arc", pattern='bil', full.names=T)) 
+#plotando variaveis (nesse caso a numero 1)
+plot(files[[1]])
+#permite verificar as coordenadas no mapa 
+drawExtent() 
+#delimita o mapa no globo com as coordenadas (XMax,XMin;YMax,Ymin)
+e<-extent(-82,-30,-60,15)
+#recorta o mapa
+files.crop<-crop(files,e) 
+#plota o mapa recortado, verificar
+plot(files.crop[[1]]) 
+
+############### Legenda Worlclim #####################################################
+#BIO1 = Annual Mean Temperature#
+#BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp))#
+#BIO3 = Isothermality (BIO2/BIO7) (* 100)#
+#BIO4 = Temperature Seasonality (standard deviation *100)#
+#BIO5 = Max Temperature of Warmest Month#
+#BIO6 = Min Temperature of Coldest Month#
+#BIO7 = Temperature Annual Range (BIO5-BIO6)#
+#BIO8 = Mean Temperature of Wettest Quarter#
+#BIO9 = Mean Temperature of Driest Quarter#
+#BIO10 = Mean Temperature of Warmest Quarter#
+#BIO11 = Mean Temperature of Coldest Quarter#
+#BIO12 = Annual Precipitation#
+#BIO13 = Precipitation of Wettest Month#
+#BIO14 = Precipitation of Driest Month#
+#BIO15 = Precipitation Seasonality (Coefficient of Variation)#
+#BIO16 = Precipitation of Wettest Quarter#
+#BIO17 = Precipitation of Driest Quarter#
+#BIO18 = Precipitation of Warmest Quarter#
+#BIO19 = Precipitation of Coldest Quarter#
+
+######### SeleÃ§Ã£o de variÃ¡veis menos correlacionadas #######################################
+
+#pega os valores das variaveis que recortou
+test<-getValues(files.crop)
+#correlaciona as variaveis, gerando uma matriz de correlação
+cor.matrix <- cor(test, use="complete.obs")
+#salva os dados da matriz em uma tabela na pasta
+write.csv(cor.matrix, 'cor_matrix.csv')
+#correlação par a par das variáveis (outra forma de visualizar)
+cor.table=as.data.frame(as.table(cor.matrix))
+#indica quais correlações resultaram a cima de 0.8 da outra
+high.cor <- subset(cor.table, abs(Freq) > 0.8 & Freq != 1) 
+#verificando a ordem das variaveis
+names(files.crop)
+
+#considerando sempre a biologia do animal
+
+### Eliminar variÃ¡veis correlacionada s###
+#Bio1
+#Bio4
+#Bio8
+#Bio9
+#Bio10
+#Bio11
+#Bio12
+#Bio13
+#Bio14
+
+#elimina as variaveis selecionadas( colocar o número da COLUNA das variaveis para descarta-las)
+files.crop.sub<- dropLayer(files.crop, c(2,3,4,5,6,7,15,19,20))
+#verificando a seleção
+plot(files.crop.sub)
+#testar novamente a correlação
+#seleciona os valores das variavei que restaram
+test2<-getValues(files.crop.sub) 
+# correlaconam em uma matrix
+cor.matrix2=cor(test2, use="complete.obs")
+#correlação par a par das variáveis
+cor.table=as.data.frame(as.table(cor.matrix2))
+# verfica as variaveis que explicam a cima de 0.8 da outra
+high.cor <- subset(cor.table, abs(Freq) > 0.8 & Freq != 1)
+
+
+####### Dados de ocorrÃªncia ############################################################
+#importa a tabela de ocorrencias:sp,lon(x),lat(y), da pasta occ
+species_occ <- read.csv("Occ/axa.csv",h=T)
+# nomeia o rodapé
+names(species_occ)<-c("Species","x","y")
+
+
+###### Visualizar ocorrÃªncias ###########
+library(maptools)
+library(maps)
+#carrega o shape geopolitico do Brasil, da pasa "shapes"
+brazil <- readShapePoly("Shapes/BRA1")
+#carrega o shape da América latina
+sa <- readShapePoly("Shapes/samer")
+#cria um documento em PDF na pasta(no R studio, o pdf não ira aparecer, vai ser montado em tempo real na pasta)
+pdf('axa_ocorencia', width=5, height=6.5)
+#organiza os eixos do mapa
+par(mgp=c(3,0.5,0))
+#plota o mapa da América do Sul
+plot(sa, axes=T, xlim=c(-75,-32), ylim=c(-58,12), lwd=2, boxlwd=2, col="Lightyellow")
+#plota o mapa do Brasil
+plot(brazil,col="Lightyellow", add=T)
+#plota os pontos de ocorrencia
+points(species_occ[,2:3], pch=21, cex=0.8, bg = "white")
+#cria pontos vermelhos nos pontos de ocorrencia
+points(species_occ[,2:3], pch=20, cex=0.6, col='red')
+#coloca escala em KM
+scalebar(1000, xy = c(-40,-50), type = 'bar', divs = 2, below = "km")
+#coloca titulo
+title(main="axa_ocorrencia", line=1)
+#escolhe cor de fundo
+box(lwd=2)
+# finaliza a construção do arquivo na pasta(da uma olhado la!!)
+dev.off()
+
+################### VariÃ¡veis preditoras #################################################
+# nomeia e agrupa as variaveis como "predictor"
+predictors <- stack(files.crop.sub)
+
+###dedica memoria para Maxent#####
+#escolha de acordo com seu computador
+options(java.parameters = "-Xmx2g")
+
+######## Modelagem simples #############
+library(dismo)
+#seleciona o eixo x e y definidos
+sp.occ <- species_occ[,2:3]
+#gera o modelo na pasta result
+me <- maxent(predictors, sp.occ, path='Results')
+#projeta o modelo nas preditoras
+modelo = predict(me,predictors)
+#plota o modelo
+plot(modelo)
+#cria grid, grava em formato para QGIS
+writeRaster(modelo,filename='Results/species_occ.asc', overwrite=T)
+#salva em pdf o raster 
+pdf(file='Results/species_occ_M.pdf', width=5, height=6.5)
+#nomeia o mapa
+plot(modelo,main='Bothrops bilineatus')
+#plota os pontos de ocorrencia
+points(species_occ[,2:3], pch=21, cex=0.8, bg = "black")
+# fecha a o arquivo de pdf
+dev.off()
+
+
+##### Modelagem com alguns parametros alterados ####
+#gera o modelo produzindo replicas do modelo, teste de jacknife nas variaveis, teste de randomização dos pontos para validação do modelo
+#essa randomização pote ser bootstrap, subsample ou crossvalidation
+me <- maxent(predictors, sp.occ, args=c("-J","-P","randomtestpoints=25", 
+                                        "replicates=5","replicatetype=bootstrap", "randomseed"), path='Results')
+#projeta o modelo nas variáveis
+modelo.rep <- predict(me,predictors)
+#plota as réplicas (não precisa)
+plot(modelo.rep)
+#média da réplicas 
+modelo.mean <- mean(modelo.rep)
+#Plota a média da réplicas
+plot(modelo.mean) 
+title(main="axa_ocorrencia", line=1)# coloca titulo
+#salva a média dos modelos em formato para qgis
+writeRaster(modelo.mean,filename='Results/species_occ.asc', overwrite = T)
+
+
+##### Modelagem com projeÃ§Ã£o para o passado ####
+
+#nomeia e agrupa as variaveis da Ultima glaciação máxima (LGM)
+lgm <- stack(list.files(path = "LGM", pattern='tif', full.names=T))
+#plotando mapa da ultima glaciação máxima no globo
+plot(lgm[[1]])
+#recortando as variavesi LGM de acordo com atuais (predicts -> e)
+lgm.crop<-crop(lgm,e)
+#salvando em pdf
+pdf('Mapa_lgm.pdf', width=5, height=6.5)
+#plota o mapa
+plot(lgm.crop[[1]]) 
+#conclui a edição
+dev.off()
+#elimina as variaveis (mesmas variaveis do presente, lembre de ver os numeros)
+lgm.crop.sub <- dropLayer(lgm.crop, c(1,2,3,4,5,6,14,18,19))
+##gera o modelo de acordo com os parametros da modelagem atual
+predictors.lgm <- stack(predictors[[1]],lgm.crop.sub)
+names(predictors.lgm)<- names(predictors)
+modelo.lgm <- predict(me,predictors.lgm)
+#projetando em pdf
+pdf('Mapa_modelo_lgm.pdf', width=5, height=6.5)
+plot(modelo.lgm)
+#média da réplicas 
+modelo.mean.pass <- mean(modelo.lgm)
+#Plota a média da réplicas 
+plot(modelo.mean.pass)
+#coloca titulo
+title(main="axa_ocorrencia", line=1)
+#encerrando edição
+dev.off()
+
+##### Modelagem com projeÃ§Ã£o para o futuro ####
+#abrindo e plotando as variaveis  do futuro "2070"
+futuro <- stack(list.files(path = "2070", pattern='tif', full.names=T))
+plot(futuro[[1]])
+#recorta em relação as variaveis ja usadas (predicts -> e)
+futuro.crop<-crop(futuro,e)
+plot(futuro.crop[[1]])
+#elimina as variáveis (mesmo modo do presente e passado)
+futuro.crop.sub <- dropLayer(futuro.crop, c(1,2,3,4,5,6,14,18,19))
+#projetando o modelo nas variaveis do futuro
+predictors.futuro <- stack(predictors[[1]],futuro.crop.sub)
+names(predictors.futuro)<- names(predictors)
+modelo.futuro <- predict(me,predictors.futuro)
+#gerando arquivo com o modelo
+pdf('Mapa_modelo_fut.pdf', width=5, height=6.5)
+#plotando o modelo
+plot(modelo.futuro) 
+#modelo médio
+modelo.mean.futuro <- mean(modelo.futuro)
+#Plotando modelo medio
+plot(modelo.mean.futuro)
+title(main="Axa_ocorrrencia", line=1)# coloca titulo
+#encerrando edição
+dev.off()
+
+####### Modelagem com analise clamping e MESS ####
+me <- maxent(predictors, sp.occ, args=c("projectionlayers=LGM_P"), path='Results')
+clamp <- raster('Results/species_LGM_P_clamping.asc')
+plot(clamp)
+novel<-raster('Results/species_LGM_P_novel.asc')
+plot(novel)
+novel.lim <- raster('Results/species_LGM_P_novel_limiting.asc')
+plot(novel.lim)
+
+######## Transformar para mapa binario ########
+## open .csv file that contains threshold value ###
+results<-read.csv("Results/maxentResults.csv",h=T)
+r<-raster('Results/axa.grd') ## creates raster objects
+
+binMP<- r>results[1,51]
+plot(binMP)
+bin10P<-r>results$X10.percentile.training.presence.logistic.threshold[1]
+plot(bin10P)
+binEQ<-r>results$Equal.training.sensitivity.and.specificity.logistic.threshold[1]
+plot(binEQ)
+
+### Figura modelos ######
+##### Fig media #########
+pdf('FigX.pdf', width=5, height=6.5)
+par(mgp=c(3,0.5,0))
+plot(r, col=colorRampPalette(c("Lightgreen","orange","red"))(255))
+plot(sa, xlim=c(-75,-32), ylim=c(-58,12),add=T)
+plot(brazil, add=T) 
+points(species_occ[,2:3], pch=21, cex=0.8, bg = "white")
+points(species_occ[,2:3], pch=20, cex=0.6)
+scalebar(1000, xy = c(-50,-50), type = 'bar', divs = 2, below = "km")
+title(main="DistribuiÃ§Ã£o Axa",line=1)
+dev.off()
+
+##### Fig binario ##########
+bin10P[bin10P==0] <- NA
+pdf('Fig_bin.pdf', width=5, height=6.5)
+par(mgp=c(3,0.5,0))
+plot(bin10P, legend=F, col="red")
+plot(sa, xlim=c(-75,-32), ylim=c(-58,12),add=T)
+plot(brazil, add=T) 
+points(species_occ[,2:3], pch=21, cex=0.8, bg = "white")
+points(species_occ[,2:3], pch=20, cex=0.6, col='green')
+scalebar(1000, xy = c(-50,-50), type = 'bar', divs = 2, below = "km")
+title(main="DistribuiÃ§Ã£o Axa",line=1)
+dev.off()
+
+##### Modelando a riqueza #######
+filenames <- list.files(path="Occ",full.names=T)
+#junta todos arquivos das diferentes especies
+pts <- do.call("rbind", lapply(filenames, read.csv, h=T)) 
+nrow(pts)
+head(pts)
+length(unique(pts$Species))
+#confere se alguma coordenada e positiva
+any(pts$Long>0) 
+
+################# Cria dados de ocorrÃªncia sem duplicatas para cada celula da sua regiao #############################
+for (i in 1:length(unique(pts$Species))) {
+  occ.file <- pts[which(pts[,1]==paste(unique(pts$Species)[i])),]
+  occ <- occ.file[,2:3]
+  cell <- cellFromXY(predictors,occ[,1:2])
+  dup <- duplicated(cell)
+  occ.semdup<- occ.file[!dup,]
+  write.csv(occ.semdup, file=paste("Occ_d/",unique(pts$Species)[i],".csv",sep=""),row.names=F)
+}
+
+########## Criar objeto com todos .csv de occorencia####################################################################
+occ.sps <- list.files(paste(getwd(),"/Occ_d/",sep=""),pattern="csv")
+splist <-unlist(lapply(occ.sps, FUN = strsplit, split=("\\.csv")))
+
+######################### Rodar modelos para todas as spp ##############################################################
+for (i in 1:length(occ.sps)){
+  sp.file <- read.csv(paste(getwd(),"/Occ_d/", occ.sps[i],sep=""),h=T)
+  sp.occ <- sp.file[,2:3]
+  me <- maxent(predictors, sp.occ, path=paste(getwd(),"/Results/", splist[i], sep=""))
+  r <- predict(me,predictors)
+  writeRaster(r,filename=paste(getwd(),"/Results/", splist[i], "/",splist[i], ".grd", sep=""), overwrite=T)
+  png(file=paste(getwd(),"/Results/", splist[i], "/", splist[i], ".png", sep=""))
+  plot(r,main= splist[i])
+  points(sp.occ, col="red", cex=0.5, pch=16)
+  dev.off()
+}
+
+######################### Aplicar threshold para converter os mapas em binarios #############################
+for(i in 1:length(occ.sps)){ 
+  results<-read.csv(paste(getwd(),"/Results/", splist[i],"/","maxentResults.csv",sep=""),h=T) ## open .csv file that contains threshold value
+  r<-raster(paste(getwd(),"/Results/", splist[i],"/",splist[i],".grd",sep="")) ## creates raster objects
+  bin05<-r>results$X10.percentile.training.presence.logistic.threshold
+  writeRaster(bin05,filename=paste(getwd(),"/Results/mapas/",splist[i],"10p.grd",sep=""), overwrite=T)
+  png(file=paste(getwd(),"/Results/",splist[i],"/10p",splist[i],".png",sep=""))
+  plot(bin05,main=splist[i])
+  dev.off()
+}
+
+#################################### Calcular Riqueza ########################################################
+maps <- stack(list.files(path = "Results/mapas", pattern='.grd',full.names=T))
+rich <-sum(maps)
+plot(rich)
+
+
+
+#######Gerando Modelos Para várias espécies, com réplicas, gerando mapas dos pontos, gerando mapa do modelo médio####
+
+#abrir variaveis#
+files <- stack(list.files(path = "Worldclim10arc", pattern='bil', full.names=T))
+plot(files[[1]])
+drawExtent() 
+e<-extent(-60,-32,-30,1)
+files.crop<-crop(files,e)
+plot(files.crop[[1]])
+
+#ver os numeros das variaveis#
+
+names(files.crop)
+
+#elecao de variaveis menos correlacionadas 
+test<-getValues(files.crop)
+cor.matrix <- cor(test, use="complete.obs")
+write.csv(cor.matrix, 'cor_matrix.csv')
+cor.table=as.data.frame(as.table(cor.matrix))
+high.cor <- subset(cor.table, abs(Freq) > 0.8 & Freq != 1)
+high.cor
+files.crop.sub<- dropLayer(files.crop, c(1,14,17,18,19,2,3,4,5,6))
+test2<-getValues(files.crop.sub)
+cor.matrix2=cor(test2, use="complete.obs")
+cor.table=as.data.frame(as.table(cor.matrix2))
+high.cor <- subset(cor.table, abs(Freq) > 0.8 & Freq != 1)
+high.cor
+
+#as variaveis q vamos usar#
+predictors <- stack(files.crop.sub)
+plot(predictors)
+
+#dedicando memoria RAM para analise#
+options(java.parameters = "-Xmx2g")
+
+#transformando arquivos de todas as espécies em um arquivo só#
+filenames <- list.files(path="Occ",full.names=T)
+pts <- do.call("rbind", lapply(filenames, read.csv, h=T))
+
+#retirando as duplicadas em relação às celulas das pretictors e depois separando os arquivos# 
+#observe que usa os arquivos da pasta occ e salva na pasta Occ_d
+for (i in 1:length(unique(pts$Species))) {
+  occ.file <- pts[which(pts[,1]==paste(unique(pts$Species)[i])),]
+  occ <- occ.file[,2:3]
+  cell <- cellFromXY(predictors,occ[,1:2])
+  dup <- duplicated(cell)
+  occ.semdup<- occ.file[!dup,]
+  write.csv(occ.semdup, file=paste("Occ_d/",unique(pts$Species)[i],".csv",sep=""),row.names=F)
+}
+
+#criando um objeto com os arquivos das espécies para automatizar#
+occ.sps <- list.files(paste(getwd(),"/Occ_d/",sep=""),pattern="csv")
+splist <-unlist(lapply(occ.sps, FUN = strsplit, split=("\\.csv")))
+
+#abrindo mapas para gerar os pdfs mapas/pontos para cada espécie#
+brazil <- readShapePoly("Shapes/BRA1")
+sa <- readShapePoly("Shapes/samer")
+
+#modelagem e mapas
+#esse código faz o modelo para cada espécie replicando 20 vezes, usando o teste de randomização subsample 
+#escolhendo 25% dos pontos roda jaknife, depois tira a media das replicações e salva o modelo como png 
+#e gera um mapa mostrando os pontos em pdf. alem de salvar arquivo asc do modelo# 
+for (i in 1:length(occ.sps)){
+  sp.file <- read.csv(paste(getwd(),"/Occ_d/", occ.sps[i],sep=""),h=T)
+  sp.occ <- sp.file[,2:3]
+  me <- maxent(predictors, sp.occ, args=c("-J","-P","randomtestpoints=25", "replicates=20","replicatetype=subsample", "randomseed"), path=paste(getwd(),"/Results/", splist[i], sep=""))
+  r <- predict(me,predictors)
+  modelo.mean <- mean(r)
+  writeRaster(modelo.mean, filename=paste(getwd(),"/Results/", splist[i], "/",splist[i], ".asc", sep=""), overwrite=T)
+  png(file=paste(getwd(),"/Results/", splist[i], "/", splist[i], ".png", sep=""))
+  plot(modelo.mean,main= splist[i])
+  points(sp.occ, col="red", cex=0.5, pch=16)
+  dev.off()
+  pdf(file=paste(getwd(),"/Results/", splist[i], "/", splist[i], ".pdf", sep=""),width=5, height=6.5)
+  par(mgp=c(3,0.5,0))
+  plot(sa, axes=T, xlim=c(-75,-32), ylim=c(-58,12), lwd=2, boxlwd=2, col="Lightyellow")
+  plot(brazil,col="Lightyellow", add=T)
+  points(sp.occ, bg = "red", cex=0.8, pch=21)
+  scalebar(1000, xy = c(-40,-50), type = 'bar', divs = 2, below = "km")
+  dev.off()
+}
+
+######################### Aplicar threshold para converter os mapas em binarios #############################
+for(i in 1:length(occ.sps)){ 
+  results<-read.csv(paste(getwd(),"/Results/", splist[i],"/","maxentResults.csv",sep=""),h=T) ## open .csv file that contains threshold value
+  r<-raster(paste(getwd(),"/Results/", splist[i],"/",splist[i],".grd",sep="")) ## creates raster objects
+  bin05<-r>results$X10.percentile.training.presence.logistic.threshold
+  writeRaster(bin05,filename=paste(getwd(),"/Results/mapas/",splist[i],"10p.grd",sep=""), overwrite=T)
+  png(file=paste(getwd(),"/Results/",splist[i],"/10p",splist[i],".png",sep=""))
+  plot(bin05,main=splist[i])
+  dev.off()
+}
+
+
+
